@@ -465,6 +465,9 @@ def GetPlexMetadata(key, reraise=False):
 
     Returns None or 401 if something went wrong
     """
+    # Check for shutdown before HTTP operations to avoid log spam during shutdown
+    if app.APP.stop_pkc or (hasattr(app.APP, 'monitor') and app.APP.monitor and app.APP.monitor.abortRequested()):
+        return None
     key = str(key)
     if '/library/metadata/' in key:
         url = "{server}" + key
@@ -698,6 +701,9 @@ def _async_download_chunk(url, args, start, callback):
 
 def get_section_iterator(section_id, plex_type=None, last_viewed_at=None,
                          updated_at=None, args=None):
+    # Check for shutdown before starting iterator to avoid HTTP errors during shutdown
+    if app.APP.stop_pkc or (hasattr(app.APP, 'monitor') and app.APP.monitor and app.APP.monitor.abortRequested()):
+        return iter([])  # Return empty iterator
     args = args or {}
     args.update({
         'checkFiles': 0,

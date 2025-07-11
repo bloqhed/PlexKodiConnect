@@ -21,6 +21,11 @@ def excludefromscan_music_folders(sections):
 
     Reboots Kodi if new library detected
     """
+    from . import app
+    # Check for shutdown before starting expensive operations
+    if app.APP.stop_pkc or (hasattr(app.APP, 'monitor') and app.APP.monitor and app.APP.monitor.abortRequested()):
+        LOG.info('Aborting music folder exclusion due to shutdown request')
+        return
     paths = []
     reboot = False
     api = Media()

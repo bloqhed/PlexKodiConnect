@@ -638,6 +638,10 @@ def sync_from_pms(parent_self, pick_libraries=False):
 def _sync_from_pms(pick_libraries):
     # Re-set value in order to make sure we got the lastest user input
     app.SYNC.enable_music = utils.settings('enableMusic') == 'true'
+    # Check for shutdown before starting expensive operations
+    if SHOULD_CANCEL and SHOULD_CANCEL():
+        LOG.info('Aborting section sync due to shutdown request')
+        return False
     xml = PF.get_plex_sections()
     if xml is None:
         LOG.error("Error download PMS sections, abort")
@@ -665,6 +669,10 @@ def _sync_from_pms(pick_libraries):
     _save_sections_to_plex_db(sections)
     # Tweak some settings so Kodi does NOT scan the music folders
     if app.SYNC.direct_paths is True:
+        # Check for shutdown before expensive music folder operations
+        if SHOULD_CANCEL and SHOULD_CANCEL():
+            LOG.info('Aborting music folder configuration due to shutdown request')
+            return False
         # Will reboot Kodi is new library detected
         music.excludefromscan_music_folders(sections)
 

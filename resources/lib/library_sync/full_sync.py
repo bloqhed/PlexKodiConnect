@@ -169,6 +169,10 @@ class FullSync(common.LibrarySyncMixin, bg.KillableThread):
                     elif items == 'updated':
                         updated_at = timestamp
                         last_viewed_at = None
+                    # Check for shutdown before HTTP operations
+                    if self.should_cancel():
+                        LOG.debug('Aborting iterator creation due to shutdown')
+                        return
                     try:
                         section.iterator = PF.get_section_iterator(
                             section.section_id,
