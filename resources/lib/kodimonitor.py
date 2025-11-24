@@ -303,24 +303,31 @@ class KodiMonitor(xbmc.Monitor):
                 kodi_id, kodi_type, path = self._json_item(playerid)
             plex_id, plex_type = self._get_ids(kodi_id, kodi_type, path)
             if not plex_id:
-                LOG.debug('No Plex id obtained - aborting playback report')
-                app.PLAYSTATE.player_states[playerid] = copy.deepcopy(app.PLAYSTATE.template)
-                return
-            try:
-                item = PL.init_plex_playqueue(playqueue, plex_id=plex_id)
-            except exceptions.PlaylistError:
-                LOG.info('Could not initialize the Plex playlist')
-                return
-            item.file = path
-            # Set the Plex container key (e.g. using the Plex playqueue)
-            container_key = None
-            if info['playlistid'] != -1:
-                # -1 is Kodi's answer if there is no playlist
-                container_key = app.PLAYQUEUES[playerid].id
-            if container_key is not None:
-                container_key = '/playQueues/%s' % container_key
-            elif plex_id is not None:
-                container_key = '/library/metadata/%s' % plex_id
+                # No Plex id found - create basic item for playback tracking
+                LOG.debug('No Plex id obtained - creating basic item for tracking')
+                item = PL.PlaylistItem()
+                item.file = path
+                item.kodi_id = kodi_id
+                item.kodi_type = kodi_type
+                item.plex_type = kodi_type
+                item.playcount = 0
+                container_key = None
+            else:
+                try:
+                    item = PL.init_plex_playqueue(playqueue, plex_id=plex_id)
+                except exceptions.PlaylistError:
+                    LOG.info('Could not initialize the Plex playlist')
+                    return
+                item.file = path
+                # Set the Plex container key (e.g. using the Plex playqueue)
+                container_key = None
+                if info['playlistid'] != -1:
+                    # -1 is Kodi's answer if there is no playlist
+                    container_key = app.PLAYQUEUES[playerid].id
+                if container_key is not None:
+                    container_key = '/playQueues/%s' % container_key
+                elif plex_id is not None:
+                    container_key = '/library/metadata/%s' % plex_id
         else:
             LOG.debug('No need to initialize playqueues')
             kodi_id = item.kodi_id
@@ -340,9 +347,9 @@ class KodiMonitor(xbmc.Monitor):
         else:
             upnext_integration = False
         # Mechanik for Plex skip intro/credits/commercials feature
-        if utils.settings('enableSkipIntro') == 'true' \
-                or utils.settings('enableSkipCredits') == 'true' \
-                or utils.settings('enableSkipCommercials') == 'true':
+        if item.api and (utils.settings('enableSkipIntro') == 'true'
+                         or utils.settings('enableSkipCredits') == 'true'
+                         or utils.settings('enableSkipCommercials') == 'true'):
             status['markers'] = item.api.markers()
             status['markers_hidden'] = {}
             status['first_credits_marker'] = item.api.first_credits_marker()

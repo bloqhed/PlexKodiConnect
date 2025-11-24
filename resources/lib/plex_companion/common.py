@@ -109,11 +109,15 @@ def timeline_dict(playerid, typus):
             item = playqueue.items[position]
         except IndexError:
             # E.g. for direct path playback for single item
-            return {
-                'controllable': CONTROLLABLE[typus],
-                'type': typus,
-                'state': 'stopped'
-            }
+            # Fallback to the item set in PLAYSTATE (e.g. items without plex_id)
+            if app.PLAYSTATE.item:
+                item = app.PLAYSTATE.item
+            else:
+                return {
+                    'controllable': CONTROLLABLE[typus],
+                    'type': typus,
+                    'state': 'stopped'
+                }
         if typus == v.PLEX_PLAYLIST_TYPE_VIDEO and not item.streams_initialized:
             # Not ready yet to send updates
             raise TypeError()
