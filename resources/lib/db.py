@@ -73,20 +73,22 @@ def connect(media_type=None):
                            timeout=DB_CONNECTION_TIMEOUT,
                            isolation_level=None)
     attempts = DB_WRITE_ATTEMPTS
+    timeout = DB_WRITE_ATTEMPTS_TIMEOUT
     while True:
         try:
             _initial_db_connection_setup(conn)
         except sqlite3.OperationalError as err:
-            if 'database is locked' not in err:
+            if err.args[0] and 'database is locked' not in err.args[0]:
                 # Not an error we want to catch, so reraise it
                 raise
             attempts -= 1
             if attempts == 0:
                 # Reraise in order to NOT catch nested OperationalErrors
                 raise LockedDatabase('Database is locked')
-            if app.APP.monitor.waitForAbort(0.05):
+            if app.APP.monitor.waitForAbort(timeout):
                 # PKC needs to quit
                 raise LockedDatabase('Database was locked and we need to exit')
+            timeout = min(timeout * 2, DB_WRITE_ATTEMPTS_TIMEOUT_MAX)
         else:
             break
     return conn
