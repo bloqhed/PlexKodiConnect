@@ -6,8 +6,9 @@ from functools import wraps
 from . import variables as v, app
 from .exceptions import LockedDatabase
 
-DB_WRITE_ATTEMPTS = 100
-DB_WRITE_ATTEMPTS_TIMEOUT = 1  # in seconds
+DB_WRITE_ATTEMPTS = 30
+DB_WRITE_ATTEMPTS_TIMEOUT = 0.05  # initial backoff in seconds
+DB_WRITE_ATTEMPTS_TIMEOUT_MAX = 5  # cap in seconds
 DB_CONNECTION_TIMEOUT = 10
 
 
@@ -23,6 +24,7 @@ def catch_operationalerrors(method):
     @wraps(method)
     def wrapper(self, *args, **kwargs):
         attempts = DB_WRITE_ATTEMPTS
+        timeout = DB_WRITE_ATTEMPTS_TIMEOUT
         while True:
             try:
                 return method(self, *args, **kwargs)
@@ -34,17 +36,10 @@ def catch_operationalerrors(method):
                 if attempts == 0:
                     # Reraise in order to NOT catch nested OperationalErrors
                     raise LockedDatabase('Database is locked')
-                # Need to close the transactions and begin new ones
-                self.kodiconn.commit()
-                if self.artconn:
-                    self.artconn.commit()
-                if app.APP.monitor.waitForAbort(DB_WRITE_ATTEMPTS_TIMEOUT):
+                if app.APP.monitor.waitForAbort(timeout):
                     # PKC needs to quit
                     return
-                # Start new transactions
-                self.kodiconn.execute('BEGIN')
-                if self.artconn:
-                    self.artconn.execute('BEGIN')
+                timeout = min(timeout * 2, DB_WRITE_ATTEMPTS_TIMEOUT_MAX)
     return wrapper
 
 
