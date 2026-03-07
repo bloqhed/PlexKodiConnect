@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import sqlite3
 from functools import wraps
+from logging import getLogger
 
 from . import variables as v, app
 from .exceptions import LockedDatabase
@@ -10,6 +11,8 @@ DB_WRITE_ATTEMPTS = 30
 DB_WRITE_ATTEMPTS_TIMEOUT = 0.05  # initial backoff in seconds
 DB_WRITE_ATTEMPTS_TIMEOUT_MAX = 5  # cap in seconds
 DB_CONNECTION_TIMEOUT = 10
+
+logger = getLogger('PLEX.db')
 
 
 def catch_operationalerrors(method):
@@ -33,6 +36,8 @@ def catch_operationalerrors(method):
                     # Not an error we want to catch, so reraise it
                     raise
                 attempts -= 1
+                logger.warning('DB locked, retrying in %.2fs (%d left)',
+                               timeout, attempts)
                 if attempts == 0:
                     # Reraise in order to NOT catch nested OperationalErrors
                     raise LockedDatabase('Database is locked')
