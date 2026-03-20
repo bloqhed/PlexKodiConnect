@@ -44,11 +44,32 @@ def catch_operationalerrors(method):
                 if attempts == 0:
                     # Reraise in order to NOT catch nested OperationalErrors
                     raise LockedDatabase('Database is locked')
+                # Release our transaction so VACUUM (or other
+                # exclusive operations) can proceed
+                _close_transaction(self.kodiconn)
+                if self.artconn:
+                    _close_transaction(self.artconn)
                 if app.APP.monitor.waitForAbort(timeout):
-                    # PKC needs to quit
                     return
                 timeout = min(timeout * 2, DB_WRITE_ATTEMPTS_TIMEOUT_MAX)
+                _begin_transaction(self.kodiconn)
+                if self.artconn:
+                    _begin_transaction(self.artconn)
     return wrapper
+
+
+def _close_transaction(conn):
+    try:
+        conn.commit()
+    except Exception:
+        pass
+
+
+def _begin_transaction(conn):
+    try:
+        conn.execute('BEGIN')
+    except Exception:
+        pass
 
 
 def _initial_db_connection_setup(conn):
