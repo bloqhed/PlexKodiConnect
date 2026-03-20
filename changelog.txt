@@ -1,3 +1,6 @@
+version 3.12.5 (beta only):
+- Hopefully almost there to fix 'database is locked' on OSMC #2229
+
 version 3.12.4 (beta only):
 - Fix "database is locked" for good, hopefully! #2227
 
