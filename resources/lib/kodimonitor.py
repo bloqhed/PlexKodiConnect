@@ -390,7 +390,19 @@ class KodiMonitor(xbmc.Monitor):
             {'item': {'id': 5, 'type': 'movie'},
              'player': {'playerid': 1, 'speed': 1}}
         """
-        pass
+        try:
+            playerid = data['player']['playerid']
+        except (TypeError, KeyError):
+            LOG.debug('Ignoring malformed Player.OnAVChange payload: %s', data)
+            return
+        if playerid != v.KODI_VIDEO_PLAYER_ID:
+            return
+        if utils.settings('subtitleStreamPick') != '0':
+            return
+        item = app.PLAYSTATE.item
+        if not item or item.playerid != playerid or item.streams_initialized:
+            return
+        item.init_subtitle_stream_early()
 
 
 def _playback_cleanup(ended=False):

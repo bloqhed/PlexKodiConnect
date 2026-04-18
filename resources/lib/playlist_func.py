@@ -79,6 +79,7 @@ class PlaylistItem(object):
         self._current_kodi_sub_stream = None
         self._current_kodi_sub_stream_enabled = None
         self.streams_initialized = False
+        self._startup_subtitle_initialized = False
 
     @property
     def plex_id(self):
@@ -262,6 +263,44 @@ class PlaylistItem(object):
             self.switch_to_plex_stream('subtitle')
         self.streams_initialized = True
         LOG.debug('Successfully initialized streams')
+
+    def init_subtitle_stream_early(self):
+        """
+        Try to apply Plex's selected subtitle as soon as Kodi reports AV
+        streams, without waiting for the slower full stream initialization.
+        """
+        if self._startup_subtitle_initialized:
+            return
+        try:
+            plex_index, language_tag = self.active_plex_stream_index('subtitle')
+        except TypeError:
+            # Plex did not select a subtitle for playback start.
+            self._startup_subtitle_initialized = True
+            return
+        try:
+            kodi_index = self.kodi_stream_index(plex_index, 'subtitle')
+        except ValueError:
+            LOG.debug('Kodi subtitle stream for Plex id %s (%s) is not ready '
+                      'yet', plex_index, language_tag)
+            return
+        kodi_subtitles = app.APP.player.getAvailableSubtitleStreams() or []
+        if kodi_index >= len(kodi_subtitles):
+            LOG.debug('Kodi has not exposed subtitle index %s yet: %s',
+                      kodi_index, kodi_subtitles)
+            return
+        enabled = js.get_subtitle_enabled(self.playerid)
+        current = js.get_current_subtitle_stream_index(self.playerid)
+        if current != kodi_index:
+            LOG.debug('Initializing subtitle stream early with Kodi index %s '
+                      'for Plex id %s (%s)',
+                      kodi_index, plex_index, language_tag)
+            app.APP.player.setSubtitleStream(kodi_index)
+        else:
+            LOG.debug('Early subtitle initialization not needed (no change)')
+        if not enabled:
+            LOG.debug('Enabling subtitles early')
+            app.APP.player.showSubtitles(True)
+        self._startup_subtitle_initialized = True
 
     def init_kodi_streams(self):
         self._current_kodi_video_stream = self._current_index('video')
